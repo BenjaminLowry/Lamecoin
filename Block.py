@@ -13,11 +13,12 @@ class Block:
         self._previous_hash = previous_hash
         self._transactions = []
 
-        # Create a hash object based off of the transactions list and the previous block's hash
-        hash_object = hashlib.sha256([hashlib.sha256(self._transactions), previous_hash])
+        # Hash the block
+        self._hash = self.hash_block()
 
-        # Set block hash to hexadecimal hash of hash object
-        self._block_hash = hash_object.hexdigest()
+    # Returns a hexadecimal hash for the block
+    def hash_block(self):
+        return hashlib.sha256([hashlib.sha256(self._transactions), self._previous_hash]).hexdigest()
 
     # Add transactions to block
     def add_transactions(self, transactions):
@@ -31,7 +32,7 @@ class Block:
     def get_transactions(self):
         return self._transactions
 
-    def get_block_hash(self):
-        return self._block_hash
+    def get_hash(self):
+        return self._hash
 
 
