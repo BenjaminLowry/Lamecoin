@@ -89,7 +89,7 @@ class BlockchainMain:
     # Resolve disputes between two different chains
     def replace_chain(self, new_chain):
 
-        if self.is_valid_new_chain(new_chain) && len(new_chain) > len(self._blockchain):
+        if self.is_valid_new_chain(new_chain) and len(new_chain) > len(self._blockchain):
             print("Valid chain will replace old chain.")
 
             self._blockchain = new_chain
