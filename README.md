@@ -1,4 +1,4 @@
-# lamecoin
+# Lamecoin
 
 A new cryptocurrency just made for fun using Python. 
 
