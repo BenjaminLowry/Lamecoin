@@ -1,16 +1,17 @@
-import Block
+from Block import Block
 
 from urllib.parse import urlparse
 import hashlib
+import requests
+import json
+
 
 class Blockchain:
 
     def __init__(self):
 
         # Initialize Genesis Block (first block)
-        # Todo: Change these transactions from text to actual transactions
-        genesis_block_transactions = ["Ben gave 3 coins to SQ", "SQ gave 2 coins to PizzaHut"]
-        genesis_block = Block(0, genesis_block_transactions)
+        genesis_block = Block(0, 1, [], 100, 100000)
 
         # Create new blockchain with Genesis Block
         self._chain = [genesis_block]
@@ -18,6 +19,20 @@ class Blockchain:
         self._current_transactions = []
 
         self._nodes = set()
+
+    # Get the chain
+    def get_chain(self):
+        return self._chain
+
+    # Get the chain in a JSON-friendly format
+    def get_jsonable_chain(self):
+
+        json_blocks = [block.to_jsonable_object() for block in self._chain]
+
+        return json_blocks
+
+    def get_length(self):
+        return len(self._chain)
 
     # Get genesis block
     def get_genesis_block(self):
@@ -28,19 +43,22 @@ class Blockchain:
         return self._chain[-1]
 
     # Add a new block to the blockchain
-    def generate_new_block(self):
+    def generate_new_block(self, proof):
 
         # Get most recent block
         previous_block = self.get_latest_block()
 
         # Set index of new block to the previous block + 1
-        index = previous_block.index + 1
+        index = previous_block.get_index() + 1
 
         # Get the block hash of the previous block
-        previous_hash = previous_block.get_block_hash()
+        previous_hash = previous_block.get_hash()
 
         # Initialize the new block
-        new_block = Block(index, previous_hash)
+        new_block = Block(index, previous_hash, self._current_transactions, proof)
+
+        # Reset the current transactions list
+        self._current_transactions = []
 
         # Add the block to the blockchain
         self._chain.append(new_block)
@@ -59,9 +77,9 @@ class Blockchain:
         valid = False
 
         # Check cases in which the block is not valid
-        if previous_block.index + 1 != new_block.index:
+        if previous_block.get_index() + 1 != new_block.get_index():
             print("Invalid index.")
-        elif previous_block.block_hash != new_block.previous_hash:
+        elif previous_block.get_hash() != new_block.get_previous_hash():
             print("Invalid previous hash.")
         elif new_block.hash_block() != new_block.get_hash():
             print("Invalid hashes: " + new_block.hash_block() + " " + new_block.get_hash())
@@ -71,7 +89,7 @@ class Blockchain:
         return valid
 
     # Checking if an incoming chain is valid
-    def is_valid_new_chain(self, disputed_chain):
+    def is_valid_chain(self, disputed_chain):
 
         if disputed_chain[0].get_hash() != self.get_genesis_block().get_hash():
             print("Invalid genesis block.")
@@ -87,16 +105,63 @@ class Blockchain:
 
         return True
 
-    # Resolve disputes between two different chains
-    def replace_chain(self, new_chain):
+    # Handle a new incoming transaction
+    def new_transaction(self, sender, recipient, amount):
 
-        if self.is_valid_new_chain(new_chain) and len(new_chain) > len(self._chain):
-            print("Valid chain will replace old chain.")
+        """
 
+        :param sender: Address (Node identifier) of sender
+        :param recipient: Address (Node identifier) of recipient
+        :param amount: Amount of currency
+        :return: Index of block that new transaction will belong to
+
+        """
+
+        # Add the transaction to the pending transactions list
+        self._current_transactions.append({
+            "sender": sender,
+            "recipient": recipient,
+            "amount": amount
+        })
+
+        return self.get_latest_block().get_index() + 1
+
+    # Find the most accurate chain if there is a dispute
+    def resolve_conflicts(self):
+
+        # Get all nodes from the network
+        neighbors = self._nodes
+
+        new_chain = None
+
+        # Get length of current blockchain to make sure the new one is longer
+        max_length = self.get_length()
+
+        # Loop through neighbor nodes
+        for node in neighbors:
+
+            # GET the full chain from a node
+            response = requests.get(f'http://{node}/get-chain')
+
+            # If the GET is successful
+            if response.status_code == 200:
+
+                # Get chain as JSON and convert each block's data into Block objects
+                chain = [Block.from_dict(block_data) for block_data in response.json()['chain']]
+                # Get length from JSON
+                length = response.json()['length']
+
+                # If the chain is valid and is longer than the (currently) longest chain in the network
+                if self.is_valid_chain(chain) and length > max_length:
+                    new_chain = chain
+                    max_length = length
+
+        # If we successfully found a more accurate chain
+        if new_chain:
             self._chain = new_chain
-
+            return True
         else:
-            print("Invalid chain. Will not replace.")
+            return False
 
     # Handles the proof of work algorithm, in order to prove work has been done
     def proof_of_work(self, last_block):
@@ -134,11 +199,14 @@ class Blockchain:
 
         """
 
-
         guess = f'{last_proof}{new_proof}{last_hash}'.encode()
         guess_hash = hashlib.sha256(guess).hexdigest()
 
         return guess_hash[:5] == "12389"
+
+    # Return a set of nodes
+    def get_nodes(self):
+        return self._nodes
 
     # Adds a new node to the server
     def register_node(self, node_address):
@@ -151,10 +219,10 @@ class Blockchain:
 
         parsed_url = urlparse(node_address)
         if parsed_url.netloc:
-            self.nodes.ad.addd(parsed_url.netloc)
+            self._nodes.add(parsed_url.netloc)
         elif parsed_url.path:
             # Accepts an URL without scheme like '192.168.0.5:5000'.
-            self.nodes.add(parsed_url.path)
+            self._nodes.add(parsed_url.path)
         else:
             raise ValueError('Invalid URL')
 
