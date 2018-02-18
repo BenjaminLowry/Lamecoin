@@ -91,11 +91,13 @@ class Blockchain:
     # Checking if an incoming chain is valid
     def is_valid_chain(self, disputed_chain):
 
+        # Hash the incoming and current genesis block and check if they are the same
         if disputed_chain[0].get_hash() != self.get_genesis_block().get_hash():
             print("Invalid genesis block.")
             return False
 
-        for i in range(1, len(self._chain)):
+        # Loop through the disputed chain
+        for i in range(1, len(disputed_chain)):
 
             # Check if the blocks connect together properly
             if self.is_valid_new_block(disputed_chain[i - 1], disputed_chain[i]):
