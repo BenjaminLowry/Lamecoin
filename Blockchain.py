@@ -4,6 +4,7 @@ from urllib.parse import urlparse
 import hashlib
 import requests
 import json
+import time
 
 
 class Blockchain:
@@ -18,7 +19,11 @@ class Blockchain:
 
         self._current_transactions = []
 
-        self._nodes = set()
+        # Set of client nodes of type Node
+        self._client_nodes = set()
+
+        # Set of addresses of master node servers
+        self._master_nodes = set()
 
     # Get the chain
     def get_chain(self):
@@ -57,6 +62,8 @@ class Blockchain:
         # Initialize the new block
         new_block = Block(index, previous_hash, self._current_transactions, proof)
 
+        queued_transactions = self._current_transactions
+
         # Reset the current transactions list
         self._current_transactions = []
 
@@ -64,7 +71,7 @@ class Blockchain:
         self._chain.append(new_block)
 
         # Return the new block
-        return new_block
+        return new_block, queued_transactions
 
     # Add a new block to the blockchain, assuming it is valid
     def add_new_block(self, new_block):
@@ -72,7 +79,8 @@ class Blockchain:
             self._chain.append(new_block)
 
     # Check whether a new block is valid
-    def is_valid_new_block(self, previous_block, new_block):
+    @staticmethod
+    def is_valid_new_block(previous_block, new_block):
 
         valid = False
 
@@ -123,11 +131,13 @@ class Blockchain:
         self._current_transactions.append({
             "sender": sender,
             "recipient": recipient,
-            "amount": amount
+            "amount": amount,
+            "timestamp": time.time()
         })
 
         return self.get_latest_block().get_index() + 1
 
+    '''
     # Find the most accurate chain if there is a dispute
     def resolve_conflicts(self):
 
@@ -164,9 +174,10 @@ class Blockchain:
             return True
         else:
             return False
-
+    '''
     # Handles the proof of work algorithm, in order to prove work has been done
-    def proof_of_work(self, last_block):
+    @staticmethod
+    def proof_of_work(last_block):
 
         """
 
@@ -184,13 +195,14 @@ class Blockchain:
 
         new_proof = 0
 
-        while self.is_valid_proof(last_proof, new_proof, last_hash) is False:
+        while Blockchain.is_valid_proof(last_proof, new_proof, last_hash) is False:
             new_proof += 1
 
         return new_proof
 
     # Checks if the proof sent in is valid, proving work
-    def is_valid_proof(self, last_proof, new_proof, last_hash):
+    @staticmethod
+    def is_valid_proof(last_proof, new_proof, last_hash):
 
         """
 
@@ -206,25 +218,49 @@ class Blockchain:
 
         return guess_hash[:5] == "12389"
 
-    # Return a set of nodes
-    def get_nodes(self):
-        return self._nodes
+    # Return master nodes (in address form e.g. 'http://192.168.0.5:5000')
+    def get_master_nodes(self):
+        return self._master_nodes
 
-    # Adds a new node to the server
-    def register_node(self, node_address):
+    # Return client nodes
+    def get_client_nodes(self):
+        return self._client_nodes
 
-        """
+    # Update the nodes (from other master's lists)
+    def update_master_nodes(self, new_nodes):
+        self._master_nodes = new_nodes
 
-        :param node_address: Address of node. Eg. 'http://192.168.0.5:5000'
+    # Adds a new client node of type Node
+    def register_client_node(self, client_node):
+        self._client_nodes.add(client_node)
+        return self.get_client_nodes()
 
-        """
+    # Adds a new master node of type String (address)
+    def register_master_node(self, master_node):
+        self._master_nodes.add(master_node)
+        return self.get_master_nodes()
 
-        parsed_url = urlparse(node_address)
-        if parsed_url.netloc:
-            self._nodes.add(parsed_url.netloc)
-        elif parsed_url.path:
-            # Accepts an URL without scheme like '192.168.0.5:5000'.
-            self._nodes.add(parsed_url.path)
-        else:
-            raise ValueError('Invalid URL')
+    # # Adds a new node to the server of type Node
+    # def register_node(self, node_address, node_list):
+    #
+    #     """
+    #
+    #     :param node_address: Address of node. Eg. 'http://192.168.0.5:5000'
+    #
+    #     """
+    #
+    #     node_set = set(node_list)
+    #
+    #     parsed_url = urlparse(node_address)
+    #     if parsed_url.netloc:
+    #         node_set.add(parsed_url.netloc)
+    #     elif parsed_url.path:
+    #         # Accepts an URL without scheme like '192.168.0.5:5000'.
+    #         node_set.add(parsed_url.path)
+    #     else:
+    #         raise ValueError('Invalid URL')
+    #
+    #     return node_set
+
+
 

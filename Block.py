@@ -24,11 +24,10 @@ class Block:
         self._hash = self.hash_block()
 
     # For converting dictionary data into Block object
-    @classmethod
-    def from_dict(cls, data):
-        return cls(data['index'], data['previous-hash'],
+    @staticmethod
+    def from_dict(data):
+        return Block(data['index'], data['previous-hash'],
                    data['transactions'], data['proof'], data['timestamp'])
-
 
     # Returns a hexadecimal hash for the block
     def hash_block(self):
@@ -64,5 +63,8 @@ class Block:
 
     def get_hash(self):
         return self._hash
+
+    def get_timestamp(self):
+        return self._timestamp
 
 

@@ -4,6 +4,8 @@ from uuid import uuid4
 
 from flask import Flask, jsonify, request
 
+import requests
+import json
 
 # Create blockchain
 blockchain = Blockchain()
@@ -91,6 +93,15 @@ def register_node():
         for node in nodes:
             blockchain.register_node(node)
 
+    for node in blockchain.get_nodes():
+
+        node_json = {
+            'nodes': list(blockchain.get_nodes())
+        }
+
+        # Send updated list of notes to all nodes in the network
+        requests.post(f'http://{node}/node/update', json=json.dumps(node_json))
+
     response = {
         'message': 'New nodes were added.',
         'new-nodes': nodes,
@@ -119,11 +130,23 @@ def resolve():
     return jsonify(response), 200
 
 
+@app.route('/node/update', methods=['POST'])
+def update_nodes():
+
+    values = request.get_json()
+
+    new_nodes = values.get('nodes')
+
+    blockchain.update_nodes(new_nodes)
+
+    return 200
+
+
 if __name__ == '__main__':
     from argparse import ArgumentParser
 
     parser = ArgumentParser()
-    parser.add_argument('-p', '--port', default=5001, type=int, help='port to listen on')
+    parser.add_argument('-p', '--port', default=5000, type=int, help='port to listen on')
     args = parser.parse_args()
     port = args.port
 
